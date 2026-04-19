@@ -1,0 +1,11 @@
+data/
+artifacts/
+logs/
+__pycache__/
+*.pyc
+.env
+mlruns/
+.venv/
+.pytest_cache/
+.DS_Store
+
