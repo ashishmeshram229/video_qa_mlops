@@ -9,3 +9,5 @@ mlruns/
 .pytest_cache/
 .DS_Store
 
+mlflow.db
+*.pt

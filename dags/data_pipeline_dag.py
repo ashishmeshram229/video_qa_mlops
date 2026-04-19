@@ -28,10 +28,10 @@ with DAG(
     run_etl_pipeline = BashOperator(
         task_id='extract_transform_validate',
         bash_command='''
-        pip install opencv-python-headless pydantic pydantic-settings && \
+        pip install --user opencv-python-headless pydantic pydantic-settings && \
+        export PYTHONPATH=/opt/airflow && \
         cd /opt/airflow && \
         python -m src.pipeline.data_engineering
         '''
     )
-
     run_etl_pipeline
