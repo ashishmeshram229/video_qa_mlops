@@ -37,12 +37,12 @@ stages:
       nfiles: 63
     - path: src/pipeline/model_training.py
       hash: md5
-      md5: 5a1f21cad2a8db3eb10c14951f553f70
-      size: 4203
+      md5: 578fcebf2c70f998b88ad25562767acb
+      size: 3153
     params:
       params.yaml:
         train.batch: 16
-        train.epochs: 300
+        train.epochs: 80
         train.imgsz: 640
         train.model_name: yolov8m-seg.pt
         train.patience: 50
@@ -50,11 +50,6 @@ stages:
     outs:
     - path: artifacts/models
       hash: md5
-      md5: e74915cc7b614569f7be0b603266723e.dir
-      size: 54970706
-      nfiles: 5
-    - path: data/processed
-      hash: md5
-      md5: 4d82aec625db33e6a31ee9ee0c58bd7c.dir
-      size: 43795673
-      nfiles: 129
+      md5: dc66555c7a034c3eb50aea82f491def7.dir
+      size: 109675968
+      nfiles: 4
