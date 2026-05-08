@@ -1,0 +1,8 @@
+# params.yaml
+train:
+  model_name: "yolov8m-seg.pt"  
+  epochs: 300
+  patience: 50
+  batch: 16
+  imgsz: 640
+  split_ratio: 0.8

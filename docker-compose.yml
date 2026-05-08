@@ -3,7 +3,7 @@ version: '3.8'
 x-airflow-common:
   &airflow-common
   image: apache/airflow:2.8.1
-  env_file:            # <--- ADD THIS
+  env_file:
     - .env
   environment:
     &airflow-common-env
@@ -58,7 +58,7 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
-    env_file:                 # <--- ADD THIS
+    env_file:
       - .env
     restart: always
     depends_on:
@@ -85,5 +85,28 @@ services:
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}:/sources
 
+  fastapi-backend:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+    restart: always
+
+  streamlit-ui:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi-backend
+    environment:
+      - API_URL=http://fastapi-backend:8000/predict
+    restart: always
+
+# Volumes block MUST be the absolute last thing in the file
 volumes:
   postgres-db-volume:

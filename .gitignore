@@ -8,3 +8,6 @@ mlruns/
 .DS_Store
 mlflow.db
 *.pt
+/data
+/mlartifacts
+/artifacts

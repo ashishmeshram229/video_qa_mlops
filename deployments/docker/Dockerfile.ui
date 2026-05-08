@@ -1,0 +1,16 @@
+# deployments/docker/Dockerfile.ui
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install Streamlit and Requests
+RUN pip install --no-cache-dir streamlit requests pillow
+
+# Copy the UI code
+COPY src/app/ui.py ./src/app/ui.py
+
+# Expose the Streamlit port
+EXPOSE 8501
+
+# Command to run the dashboard
+CMD ["streamlit", "run", "src/app/ui.py", "--server.port=8501", "--server.address=0.0.0.0"]

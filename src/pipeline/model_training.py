@@ -26,9 +26,15 @@ class YoloTrainingPipeline:
         self.yaml_path = self.processed_dir / "data.yaml"
         self.model_output_dir = config.MODEL_DIR
 
-    def setup_and_split_data(self, split_ratio=0.8):
-        """Creates train/val splits required by YOLO."""
-        logger.info("Setting up processed data directories and splitting data...")
+        # LOAD PARAMS FROM YAML FOR DVC REPRODUCIBILITY
+        with open("params.yaml", "r") as f:
+            self.params = yaml.safe_load(f)["train"]
+
+    def setup_and_split_data(self):
+        """Creates train/val splits required by YOLO using dynamic parameters."""
+        split_ratio = self.params["split_ratio"]
+        logger.info(f"Setting up processed data directories and splitting data with ratio {split_ratio}...")
+        
         if self.processed_dir.exists():
             shutil.rmtree(self.processed_dir)
             
@@ -67,24 +73,28 @@ class YoloTrainingPipeline:
             yaml.dump(yaml_content, f, default_flow_style=False)
 
     def train(self):
-        """Trains the YOLOv8n model using Apple Silicon (MPS) and MLflow."""
-        logger.info("Initializing YOLOv8 Nano training on Mac M4 (mps)...")
+        """Trains the YOLOv8 model using Apple Silicon (MPS), MLflow, and dynamic params."""
+        logger.info(f"Initializing YOLO training with {self.params['model_name']}...")
         
         # Link MLflow
         os.environ["MLFLOW_TRACKING_URI"] = config.MLFLOW_TRACKING_URI
         os.environ["MLFLOW_EXPERIMENT_NAME"] = config.MLFLOW_EXPERIMENT_NAME
 
-        model = YOLO("yolov8n.pt") 
+        # Load dynamic model name (e.g., yolov8m.pt)
+        model = YOLO(self.params["model_name"]) 
         
-        # Train model using 'mps' device
+        # Train model using 'mps' device and dynamic hyper-parameters
         model.train(
             data=str(self.yaml_path),
-            epochs=10, # Kept low for initial quick testing
-            imgsz=640,
+            epochs=self.params["epochs"],
+            patience=self.params["patience"],
+            batch=self.params["batch"],
+            imgsz=self.params["imgsz"],
             device='mps', 
             project=str(self.model_output_dir),
             name="yolo_defect_run",
-            exist_ok=True
+            exist_ok=True,
+            plots=True # Ensures confusion matrices and F1 curves are generated
         )
         logger.info("Training complete. Artifacts logged to local directory and MLflow.")
 
