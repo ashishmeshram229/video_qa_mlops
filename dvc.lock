@@ -1,0 +1,60 @@
+schema: '2.0'
+stages:
+  data_processing:
+    cmd: python -m src.pipeline.data_engineering
+    deps:
+    - path: data/raw/bottle.tar.xz
+      hash: md5
+      md5: 79b4d46b8647d969e323afef8d8445ff
+      size: 155880244
+    - path: src/pipeline/data_engineering.py
+      hash: md5
+      md5: 0f501b92c45c0f72162e954221387ddb
+      size: 4738
+    outs:
+    - path: data/interim/images
+      hash: md5
+      md5: afec8aee7c763cd749e7b7505e0ca36f.dir
+      size: 43775518
+      nfiles: 63
+    - path: data/interim/labels
+      hash: md5
+      md5: 0039c2630faa4e6ab55c4e6adbe0fb74.dir
+      size: 2521
+      nfiles: 63
+  model_training:
+    cmd: python -m src.pipeline.model_training
+    deps:
+    - path: data/interim/images
+      hash: md5
+      md5: afec8aee7c763cd749e7b7505e0ca36f.dir
+      size: 43775518
+      nfiles: 63
+    - path: data/interim/labels
+      hash: md5
+      md5: 0039c2630faa4e6ab55c4e6adbe0fb74.dir
+      size: 2521
+      nfiles: 63
+    - path: src/pipeline/model_training.py
+      hash: md5
+      md5: 5a1f21cad2a8db3eb10c14951f553f70
+      size: 4203
+    params:
+      params.yaml:
+        train.batch: 16
+        train.epochs: 300
+        train.imgsz: 640
+        train.model_name: yolov8m-seg.pt
+        train.patience: 50
+        train.split_ratio: 0.8
+    outs:
+    - path: artifacts/models
+      hash: md5
+      md5: e74915cc7b614569f7be0b603266723e.dir
+      size: 54970706
+      nfiles: 5
+    - path: data/processed
+      hash: md5
+      md5: 4d82aec625db33e6a31ee9ee0c58bd7c.dir
+      size: 43795673
+      nfiles: 129
