@@ -1,5 +1,5 @@
-# src/models/inference.py
 import io
+import mlflow
 from PIL import Image
 from ultralytics import YOLO
 from src.config.core import config
@@ -9,15 +9,30 @@ logger = get_logger(__name__)
 
 class InferenceEngine:
     def __init__(self):
-        # Pointing to the Colab model you forced into DVC
-        self.model_path = config.MODEL_DIR / "yolo_defect_run" / "weights" / "best.pt"
-        logger.info(f"Loading segmentation model from {self.model_path}")
+        logger.info("Connecting to MLflow Model Registry to fetch model...")
+        
+        # Connect to tracking server (Use host.docker.internal if running inside Docker to reach Mac localhost)
+        mlflow.set_tracking_uri("http://host.docker.internal:5000")
+        model_name = "YOLOv8m_Defect_Segmentation"
         
         try:
-            self.model = YOLO(self.model_path)
+            # Dynamically pull the model currently in Staging
+            logger.info(f"Attempting to download '{model_name}' from Staging...")
+            model_uri = f"models:/{model_name}/Staging"
+            local_model_path = mlflow.artifacts.download_artifacts(model_uri)
+            
+            # --- THE 1-LINE FIX IS HERE ---
+            # Tell YOLO to look inside the downloaded MLflow folder for the .pt file
+            self.model = YOLO(f"{local_model_path}/best.pt")
+            
+            logger.info("Successfully loaded MLflow Registered Model into memory.")
         except Exception as e:
-            logger.error(f"Failed to load model: {e}")
-            raise RuntimeError("Model weight file not found. Did you run dvc pull?")
+            logger.warning(f"Failed to fetch model from MLflow Registry: {e}")
+            logger.info("Falling back to local DVC best.pt...")
+            
+            # Fallback to local DVC tracked file
+            local_fallback_path = "artifacts/models/yolo_seg_run/weights/best.pt"
+            self.model = YOLO(local_fallback_path)
 
     def predict(self, image_bytes: bytes) -> list:
         """Runs segmentation inference and extracts boxes and masks."""
@@ -40,10 +55,9 @@ class InferenceEngine:
                 cls_id = int(boxes.cls[i])
                 class_name = self.model.names[cls_id]
 
-                # Extract Segmentation Mask (if it exists)
+                # Extract Segmentation Mask
                 mask_points = None
                 if masks is not None and len(masks.xy) > i:
-                    # masks.xy is a list of numpy arrays representing the polygon
                     mask_points = masks.xy[i].tolist()
 
                 formatted_results.append({

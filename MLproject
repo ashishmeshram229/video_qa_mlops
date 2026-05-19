@@ -1,0 +1,9 @@
+name: YOLOv8_Video_Quality_Assurance
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_file: {type: string, default: "data/raw/bottle.tar.xz"}
+    command: "dvc repro"

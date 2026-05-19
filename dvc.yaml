@@ -1,4 +1,3 @@
-# dvc.yaml
 stages:
   data_processing:
     cmd: python -m src.pipeline.data_engineering
@@ -13,8 +12,8 @@ stages:
     cmd: python -m src.pipeline.model_training
     deps:
       - src/pipeline/model_training.py
-      - data/interim/images
-      - data/interim/labels
+      - data/interim/images       # <--- Correct dependency!
+      - data/interim/labels       # <--- Correct dependency!
     params:
       - train.epochs
       - train.split_ratio
@@ -23,5 +22,4 @@ stages:
       - train.batch      
       - train.patience
     outs:
-      - data/processed
       - artifacts/models

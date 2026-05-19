@@ -1,65 +1,79 @@
-# src/app/ui.py
 import streamlit as st
 import requests
-import io
-from PIL import Image, ImageDraw
+import zipfile
 
-API_URL = "http://fastapi-backend:8000" # Update to "http://localhost:8000" if running outside Docker
+# If running via Docker Compose, use 'fastapi-backend'. 
+# If running locally on Mac, change this to 'localhost'.
+API_URL = "http://fastapi-backend:8000/predict" 
 
-st.set_page_config(page_title="Industrial Defect Segmentation", layout="wide")
+st.title("🏭 MVTec Quality Assurance Monitor")
+st.write("Upload a product image or a ZIP file containing multiple images to detect defects.")
 
-def draw_segmentation(image: Image.Image, detections: list) -> Image.Image:
-    """Draws semi-transparent polygon masks and bounding boxes."""
-    # Create an RGBA overlay for transparent masks
-    overlay = image.convert("RGBA")
-    draw = ImageDraw.Draw(overlay, "RGBA")
-
-    for det in detections:
-        # Red for defect, Green for normal
-        fill_color = (255, 0, 0, 90) if det['class_name'] == 'defect' else (0, 255, 0, 90)
-        outline_color = (255, 0, 0, 255) if det['class_name'] == 'defect' else (0, 255, 0, 255)
-
-        # 1. Draw the Polygon Mask
-        if det.get('mask'):
-            # Flatten the nested list [[x,y], [x,y]] -> [x, y, x, y] for PIL
-            poly_points = [coord for point in det['mask'] for coord in point]
-            if len(poly_points) >= 6: # Requires at least 3 points (triangle)
-                draw.polygon(poly_points, fill=fill_color, outline=outline_color)
-
-        # 2. Draw the Bounding Box & Text
-        box = det['box']
-        draw.rectangle((box[0], box[1], box[2], box[3]), outline=outline_color, width=2)
-        draw.text((box[0], max(0, box[1] - 15)), f"{det['class_name']} ({det['confidence']:.2f})", fill=outline_color)
-
-    # Composite the overlay onto the original image
-    return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
-
-st.title("🔍 MVTec Defect Segmentation Panel")
-st.markdown("Upload a bottle image to run pixel-perfect anomaly detection.")
-
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+# File uploader accepts both single images and ZIP archives
+uploaded_file = st.file_uploader("Upload Image or ZIP", type=["jpg", "jpeg", "png", "zip"])
 
 if uploaded_file is not None:
-    # Display original
-    original_image = Image.open(uploaded_file)
-    st.image(original_image, caption="Uploaded Image", use_container_width=True)
-
-    if st.button("Run Segmentation Inference"):
-        with st.spinner("Analyzing pixels..."):
-            # Send to FastAPI
-            files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-            response = requests.post(f"{API_URL}/predict", files=files)
-
-            if response.status_code == 200:
-                detections = response.json().get("detections", [])
+    
+    if uploaded_file.name.lower().endswith('.zip'):
+        st.info("📦 ZIP file detected. Extracting and processing batch...")
+        
+        try:
+            with zipfile.ZipFile(uploaded_file, 'r') as z:
+                # Filter out folders and hidden Mac files
+                image_names = [
+                    n for n in z.namelist() 
+                    if n.lower().endswith(('.png', '.jpg', '.jpeg')) and '__MACOSX' not in n
+                ]
                 
-                if not detections:
-                    st.success("✅ Bottle passed inspection. No defects detected.")
+                if not image_names:
+                    st.error("❌ No valid images found in the ZIP file!")
                 else:
-                    st.error(f"⚠️ {len(detections)} anomaly mask(s) detected!")
+                    st.success(f"✅ Found {len(image_names)} images. Sending to Inference Engine...")
                     
-                    # Draw masks and show result
-                    result_image = draw_segmentation(original_image, detections)
-                    st.image(result_image, caption="Segmentation Map", use_container_width=True)
-            else:
-                st.error(f"Backend Error: {response.text}")
+                    # Create a 3-column grid for clean UI
+                    cols = st.columns(3)
+                    
+                    for idx, img_name in enumerate(image_names):
+                        with z.open(img_name) as img_file:
+                            img_bytes = img_file.read()
+                            
+                            try:
+                                # Send to FastAPI
+                                files = {"file": (img_name, img_bytes, "image/jpeg")}
+                                response = requests.post(API_URL, files=files, timeout=15)
+                                
+                                # Route to the correct column (0, 1, or 2)
+                                col = cols[idx % 3]
+                                
+                                if response.status_code == 200:
+                                    results = response.json()
+                                    col.image(img_bytes, caption=f"Processed: {img_name}")
+                                    col.json(results) # Display the bounding boxes/status
+                                else:
+                                    col.error(f"❌ Failed to process {img_name}. API Status: {response.status_code}")
+                                    
+                            except requests.exceptions.ConnectionError:
+                                st.error("🚨 CRITICAL ERROR: Could not connect to FastAPI. Is the backend running?")
+                                break # Stop the loop if the server is down
+                                
+        except zipfile.BadZipFile:
+            st.error("❌ The uploaded file is not a valid ZIP archive or is corrupted.")
+
+  
+    else:
+        st.image(uploaded_file, caption="Uploaded Image", width=400)
+        
+        if st.button("Run Inspection"):
+            with st.spinner("Detecting defects..."):
+                try:
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "image/jpeg")}
+                    response = requests.post(API_URL, files=files, timeout=10)
+                    
+                    if response.status_code == 200:
+                        st.success("✅ Inspection Complete!")
+                        st.json(response.json())
+                    else:
+                        st.error(f"❌ API Error: Status {response.status_code}")
+                        
+                except requests.exceptions.ConnectionError:
+                    st.error("🚨 CRITICAL ERROR: Could not connect to FastAPI. Is the backend container running?")

@@ -106,7 +106,30 @@ services:
     environment:
       - API_URL=http://fastapi-backend:8000/predict
     restart: always
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: video_qa_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployments/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - default
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: video_qa_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - default
 
 # Volumes block MUST be the absolute last thing in the file
 volumes:
   postgres-db-volume:
+

@@ -4,11 +4,14 @@ from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
 
+from prometheus_fastapi_instrumentator import Instrumentator ### NEW
+
 from src.models.inference import InferenceEngine
 
 app = FastAPI(title="MVTec Defect Segmentation API", version="2.0")
 engine = InferenceEngine()
-
+# Expose /metrics endpoint for Prometheus
+Instrumentator().instrument(app).expose(app) ### NEW
 # --- Pydantic Schemas for Segmentation ---
 class Detection(BaseModel):
     class_name: str

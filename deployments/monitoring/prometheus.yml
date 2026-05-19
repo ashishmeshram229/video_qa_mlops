@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s # How often to scrape data
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'fastapi'
+    metrics_path: '/metrics'
+    static_configs:
+      # This MUST match the service name and port in your docker-compose.yml
+      - targets: ['fastapi-backend:8000']
